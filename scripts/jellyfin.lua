@@ -517,27 +517,23 @@ local function fetch_trickplay_data()
         return 
     end
     
-    -- Try common trickplay widths (320 is typical for Jellyfin)
-    -- Note: Currently uses first available width without validation.
-    -- Future enhancement: verify endpoint availability before setting properties
-    local widths = {320, 480}
-    for _, width in ipairs(widths) do
-        local trickplay_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..width
-        
-        -- Store trickplay info globally
-        trickplay_data = {
-            item_id = item.Id,
-            width = width,
-            base_url = trickplay_url,
-            interval = TRICKPLAY_DEFAULT_INTERVAL
-        }
-        
-        -- Share trickplay URL and interval with other scripts (like OSC)
-        mp.set_property("user-data/jellyfin/trickplay-url", trickplay_url)
-        mp.set_property("user-data/jellyfin/trickplay-interval", tostring(TRICKPLAY_DEFAULT_INTERVAL))
-        msg.info("Trickplay data available at: " .. trickplay_url)
-        break
-    end
+    -- Use 320px width (typical for Jellyfin trickplay)
+    -- Future enhancement: Try multiple widths and verify endpoint availability
+    local width = 320
+    local trickplay_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..width
+    
+    -- Store trickplay info globally
+    trickplay_data = {
+        item_id = item.Id,
+        width = width,
+        base_url = trickplay_url,
+        interval = TRICKPLAY_DEFAULT_INTERVAL
+    }
+    
+    -- Share trickplay URL and interval with other scripts (like OSC)
+    mp.set_property("user-data/jellyfin/trickplay-url", trickplay_url)
+    mp.set_property("user-data/jellyfin/trickplay-interval", tostring(TRICKPLAY_DEFAULT_INTERVAL))
+    msg.info("Trickplay data available at: " .. trickplay_url)
 end
 
 local function add_subs()

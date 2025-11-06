@@ -302,7 +302,7 @@ end
 -- Full implementation would require downloading and converting images to BGRA format,
 -- similar to how jellyfin.lua handles poster images. This can be extended once
 -- the basic functionality is tested with a Jellyfin server.
-function show_trickplay_thumbnail(position_percent, tooltip_x, tooltip_y)
+local function show_trickplay_thumbnail(position_percent, tooltip_x, tooltip_y)
     local trickplay_url = mp.get_property("user-data/jellyfin/trickplay-url", "")
     if trickplay_url == "" then
         return
@@ -331,7 +331,7 @@ function show_trickplay_thumbnail(position_percent, tooltip_x, tooltip_y)
     state.trickplay_visible = true
 end
 
-function hide_trickplay_thumbnail()
+local function hide_trickplay_thumbnail()
     if state.trickplay_visible then
         mp.commandv("overlay-remove", state.trickplay_overlay_id)
         state.trickplay_visible = false
