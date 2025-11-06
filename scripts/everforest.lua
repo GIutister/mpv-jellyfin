@@ -295,6 +295,10 @@ function add_area(name, x1, y1, x2, y2)
 end
 
 -- Trickplay helper functions
+-- Note: This provides the infrastructure for trickplay thumbnail previews.
+-- Full implementation would require downloading and converting images to BGRA format,
+-- similar to how jellyfin.lua handles poster images. This can be extended once
+-- the basic functionality is tested with a Jellyfin server.
 function show_trickplay_thumbnail(position_percent, tooltip_x, tooltip_y)
     local trickplay_url = mp.get_property("user-data/jellyfin/trickplay-url", "")
     if trickplay_url == "" then
@@ -306,19 +310,21 @@ function show_trickplay_thumbnail(position_percent, tooltip_x, tooltip_y)
         return
     end
     
+    -- Get interval from jellyfin script (defaults to 10 if not set)
+    local interval = tonumber(mp.get_property("user-data/jellyfin/trickplay-interval", "10"))
+    
     -- Calculate time position in seconds
     local time_pos = duration * (position_percent / 100)
     
-    -- Jellyfin trickplay typically has thumbnails every 10 seconds
+    -- Calculate which tile to display
     -- The URL format is: base_url/tile_index.jpg
-    local interval = 10  -- seconds per thumbnail
     local tile_index = math.floor(time_pos / interval)
     
     local thumb_url = trickplay_url .. "/" .. tile_index .. ".jpg"
     
-    -- Download and display the thumbnail
-    -- For now, we'll use a simple approach with overlay
-    -- Note: This is a simplified implementation
+    -- Infrastructure is in place - ready for full thumbnail display implementation
+    -- Would need to: download thumb_url, convert to BGRA, display at (tooltip_x, tooltip_y)
+    msg.verbose("Trickplay thumbnail for " .. string.format("%.1f", time_pos) .. "s: " .. thumb_url)
     state.trickplay_visible = true
 end
 

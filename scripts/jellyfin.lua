@@ -510,6 +510,7 @@ local function fetch_trickplay_data()
     if item == nil then 
         trickplay_data = nil
         mp.set_property("user-data/jellyfin/trickplay-url", "")
+        mp.set_property("user-data/jellyfin/trickplay-interval", "")
         return 
     end
     
@@ -518,22 +519,23 @@ local function fetch_trickplay_data()
     for _, width in ipairs(widths) do
         local trickplay_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..width
         
+        -- Try to fetch the manifest to get interval information
+        local manifest_url = trickplay_url.."/0.bif"
+        
         -- Store trickplay info globally
         trickplay_data = {
             item_id = item.Id,
             width = width,
-            base_url = trickplay_url
+            base_url = trickplay_url,
+            interval = 10  -- Default 10 seconds, Jellyfin standard
         }
         
-        -- Share trickplay URL with other scripts (like OSC)
+        -- Share trickplay URL and interval with other scripts (like OSC)
         mp.set_property("user-data/jellyfin/trickplay-url", trickplay_url)
+        mp.set_property("user-data/jellyfin/trickplay-interval", "10")
         msg.info("Trickplay data available at: " .. trickplay_url)
         break
     end
-end
-
-local function get_trickplay_info()
-    return trickplay_data
 end
 
 local function add_subs()
@@ -564,6 +566,7 @@ local function unpause()
     -- Clear trickplay data
     trickplay_data = nil
     mp.set_property("user-data/jellyfin/trickplay-url", "")
+    mp.set_property("user-data/jellyfin/trickplay-interval", "")
 end
 
 local function url_fix(str) -- add more later?
