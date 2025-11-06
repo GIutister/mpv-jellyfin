@@ -533,6 +533,8 @@ local function fetch_trickplay_data()
             width = w
             msg.info("Found trickplay manifest at width: " .. w)
             break
+        else
+            msg.debug("No trickplay data at width: " .. w)
         end
     end
     
@@ -543,9 +545,15 @@ local function fetch_trickplay_data()
     end
     
     -- Extract interval from manifest (Jellyfin returns interval in milliseconds)
+    -- Standard Jellyfin trickplay intervals are typically 10000ms (10s)
     local interval = TRICKPLAY_DEFAULT_INTERVAL
     if manifest.Interval ~= nil and manifest.Interval > 0 then
         interval = manifest.Interval / 1000  -- Convert milliseconds to seconds
+        -- Sanity check: interval should be between 1 and 60 seconds
+        if interval < 1 or interval > 60 then
+            msg.warn("Unusual trickplay interval: " .. interval .. "s, using default")
+            interval = TRICKPLAY_DEFAULT_INTERVAL
+        end
     end
     
     local trickplay_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..width
