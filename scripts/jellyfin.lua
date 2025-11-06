@@ -40,6 +40,9 @@ local async = {} -- 1 = image thread, 2 = request thread
 local current_item_id = nil
 local playback_session_id = nil
 
+-- Seed random number generator once at initialization
+math.randomseed(os.time())
+
 local align_x = 1 -- 1 = left, 2 = center, 3 = right
 local align_y = 4 -- 4 = top, 8 = center, 0 = bottom
 --A value of 1 specifies a left-justified subtitle
@@ -444,7 +447,6 @@ local function report_playback_start()
     if item == nil then return end
     current_item_id = item.Id
     -- Generate unique session ID using timestamp and random component
-    math.randomseed(os.time())
     playback_session_id = tostring(os.time()) .. "-" .. tostring(math.random(1000, 9999))
     
     local pos = mp.get_property_number("time-pos") or 0
@@ -466,7 +468,7 @@ local function report_playback_progress()
     if current_item_id == nil or playback_session_id == nil then return end
     
     local pos = mp.get_property_number("time-pos")
-    if pos == nil then return end
+    if pos == nil or pos < 0 then return end
     local position_ticks = math.floor(pos * 10000000)
     
     local is_paused = mp.get_property_bool("pause") or false
