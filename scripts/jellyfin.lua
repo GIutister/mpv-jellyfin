@@ -37,6 +37,11 @@ local layer = 1
 local items = {}
 local ow, oh, op = 0, 0, 0
 local async = {} -- 1 = image thread, 2 = request thread
+local current_item_id = nil
+local playback_session_id = nil
+
+-- Seed random number generator once at initialization
+math.randomseed(os.time())
 
 local align_x = 1 -- 1 = left, 2 = center, 3 = right
 local align_y = 4 -- 4 = top, 8 = center, 0 = bottom
@@ -80,12 +85,17 @@ local function clear_request(success, result, error)
     async[2] = nil
 end
 
-local function send_request_async(method, url)
+local function send_request_async(method, url, data)
     if #api_key > 0 and async[2] == nil then -- multiple requests are just discarded
+        local args = {"curl", "-X", method, url, "-H", "Authorization: MediaBrowser Token=\""..api_key.."\"", "-H", "Content-Type: application/json"}
+        if data ~= nil then
+            table.insert(args, "-d")
+            table.insert(args, data)
+        end
         async[2] = mp.command_native_async({
             name = "subprocess",
             playback_only = false,
-            args = {"curl", "-X", method, url, "-H", "Authorization: MediaBrowser Token=\""..api_key.."\""}
+            args = args
         }, function(success, result, error) clear_request(success, result, error) end)
         return 0
     end
@@ -358,7 +368,7 @@ local function connect()
         capture_stdout = true,
         capture_stderr = true,
         playback_only = false,
-        args = {"curl", options.url.."/Users/AuthenticateByName", "-H", "accept: application/json", "-H", "content-type: application/json", "-H", "x-emby-authorization: MediaBrowser Client=\"Custom Client\", Device=\"Custom Device\", DeviceId=\"1\", Version=\"0.0.1\"", "-d", "{\"username\":\""..options.username.."\",\"Pw\":\""..options.password.."\"}"}
+        args = {"curl", options.url.."/Users/AuthenticateByName", "-H", "accept: application/json", "-H", "content-type: application/json", "-H", "x-emby-authorization: MediaBrowser Client=\"MPV\", Device=\"MPV\", DeviceId=\"1\", Version=\"0.0.1\"", "-d", "{\"username\":\""..options.username.."\",\"Pw\":\""..options.password.."\"}"}
     })
     local result = utils.parse_json(request.stdout)
     user_id = result.User.Id
@@ -432,6 +442,67 @@ local function check_percent()
     end
 end
 
+local function report_playback_start()
+    local item = get_playing_item()
+    if item == nil then return end
+    current_item_id = item.Id
+    -- Generate unique session ID using timestamp and random component
+    playback_session_id = tostring(os.time()) .. "-" .. tostring(math.random(1000, 9999))
+    
+    local pos = mp.get_property_number("time-pos") or 0
+    local position_ticks = math.floor(pos * 10000000)
+    
+    local data = string.format([[{
+        "ItemId": "%s",
+        "SessionId": "%s",
+        "PositionTicks": %d,
+        "IsPaused": false,
+        "IsMuted": false,
+        "PlayMethod": "DirectStream"
+    }]], item.Id, playback_session_id, position_ticks)
+    
+    send_request_async("POST", options.url.."/Sessions/Playing", data)
+end
+
+local function report_playback_progress()
+    if current_item_id == nil or playback_session_id == nil then return end
+    
+    local pos = mp.get_property_number("time-pos")
+    if pos == nil or pos < 0 then return end
+    local position_ticks = math.floor(pos * 10000000)
+    
+    local is_paused = mp.get_property_bool("pause") or false
+    
+    local data = string.format([[{
+        "ItemId": "%s",
+        "SessionId": "%s",
+        "PositionTicks": %d,
+        "IsPaused": %s,
+        "IsMuted": false,
+        "PlayMethod": "DirectStream"
+    }]], current_item_id, playback_session_id, position_ticks, tostring(is_paused))
+    
+    send_request_async("POST", options.url.."/Sessions/Playing/Progress", data)
+end
+
+local function report_playback_stopped()
+    if current_item_id == nil or playback_session_id == nil then return end
+    
+    local pos = mp.get_property_number("time-pos") or 0
+    local position_ticks = math.floor(pos * 10000000)
+    
+    local data = string.format([[{
+        "ItemId": "%s",
+        "SessionId": "%s",
+        "PositionTicks": %d
+    }]], current_item_id, playback_session_id, position_ticks)
+    
+    send_request_async("POST", options.url.."/Sessions/Playing/Stopped", data)
+    
+    current_item_id = nil
+    playback_session_id = nil
+end
+
 local function add_subs()
     local item = get_playing_item()
     if item == nil then return end
@@ -446,9 +517,13 @@ local function add_subs()
             break
         end
     end
+    -- Report playback start to Jellyfin
+    report_playback_start()
 end
 
 local function unpause()
+    -- This function is called on 'end-file' event to report playback stopped
+    report_playback_stopped()
     mp.set_property_bool("pause", false)
     mp.set_property("force-media-title", "")
 end
@@ -505,6 +580,7 @@ local function enable_overlay_on_idle(_, is_idle)
 end
 
 mp.add_periodic_timer(1, check_percent)
+mp.add_periodic_timer(10, report_playback_progress)
 mp.add_key_binding("Ctrl+j", "jf", toggle_overlay)
 mp.add_key_binding("ESC", nil, disable_overlay)
 if options.hide_images ~= "on" then
