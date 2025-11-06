@@ -363,12 +363,13 @@ local function key_left()
 end
 
 local function connect()
+    local mpv_version = mp.get_property("mpv-version") or "0.0.1"
     local request = mp.command_native({
         name = "subprocess",
         capture_stdout = true,
         capture_stderr = true,
         playback_only = false,
-        args = {"curl", options.url.."/Users/AuthenticateByName", "-H", "accept: application/json", "-H", "content-type: application/json", "-H", "x-emby-authorization: MediaBrowser Client=\"MPV\", Device=\"MPV\", DeviceId=\"1\", Version=\"0.0.1\"", "-d", "{\"username\":\""..options.username.."\",\"Pw\":\""..options.password.."\"}"}
+        args = {"curl", options.url.."/Users/AuthenticateByName", "-H", "accept: application/json", "-H", "content-type: application/json", "-H", "x-emby-authorization: MediaBrowser Client=\"Mpv\", Device=\"Mpv\", DeviceId=\"1\", Version=\""..mpv_version.."\"", "-d", "{\"username\":\""..options.username.."\",\"Pw\":\""..options.password.."\"}"}
     })
     local result = utils.parse_json(request.stdout)
     user_id = result.User.Id
