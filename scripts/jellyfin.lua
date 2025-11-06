@@ -41,6 +41,9 @@ local current_item_id = nil
 local playback_session_id = nil
 local trickplay_data = nil -- Stores trickplay manifest for current video
 
+-- Trickplay constants
+local TRICKPLAY_DEFAULT_INTERVAL = 10 -- Default seconds per thumbnail (Jellyfin standard)
+
 -- Seed random number generator once at initialization
 math.randomseed(os.time())
 
@@ -519,20 +522,17 @@ local function fetch_trickplay_data()
     for _, width in ipairs(widths) do
         local trickplay_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..width
         
-        -- Try to fetch the manifest to get interval information
-        local manifest_url = trickplay_url.."/0.bif"
-        
         -- Store trickplay info globally
         trickplay_data = {
             item_id = item.Id,
             width = width,
             base_url = trickplay_url,
-            interval = 10  -- Default 10 seconds, Jellyfin standard
+            interval = TRICKPLAY_DEFAULT_INTERVAL
         }
         
         -- Share trickplay URL and interval with other scripts (like OSC)
         mp.set_property("user-data/jellyfin/trickplay-url", trickplay_url)
-        mp.set_property("user-data/jellyfin/trickplay-interval", "10")
+        mp.set_property("user-data/jellyfin/trickplay-interval", tostring(TRICKPLAY_DEFAULT_INTERVAL))
         msg.info("Trickplay data available at: " .. trickplay_url)
         break
     end

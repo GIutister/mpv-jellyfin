@@ -310,7 +310,7 @@ function show_trickplay_thumbnail(position_percent, tooltip_x, tooltip_y)
         return
     end
     
-    -- Get interval from jellyfin script (defaults to 10 if not set)
+    -- Get interval from jellyfin script (defaults to 10 seconds per Jellyfin standard if not set)
     local interval = tonumber(mp.get_property("user-data/jellyfin/trickplay-interval", "10"))
     
     -- Calculate time position in seconds
