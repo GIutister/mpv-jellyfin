@@ -518,6 +518,8 @@ local function fetch_trickplay_data()
     end
     
     -- Try common trickplay widths (320 is typical for Jellyfin)
+    -- Note: Currently uses first available width without validation.
+    -- Future enhancement: verify endpoint availability before setting properties
     local widths = {320, 480}
     for _, width in ipairs(widths) do
         local trickplay_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..width

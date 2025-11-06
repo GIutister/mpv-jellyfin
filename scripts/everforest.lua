@@ -6,6 +6,9 @@ local msg = require 'mp.msg'
 local opt = require 'mp.options'
 local utils = require 'mp.utils'
 
+-- Trickplay constants (matches jellyfin.lua)
+local TRICKPLAY_DEFAULT_INTERVAL = 10 -- Default seconds per thumbnail (Jellyfin standard)
+
 --
 -- Parameters
 --
@@ -310,8 +313,8 @@ function show_trickplay_thumbnail(position_percent, tooltip_x, tooltip_y)
         return
     end
     
-    -- Get interval from jellyfin script (defaults to 10 seconds per Jellyfin standard if not set)
-    local interval = tonumber(mp.get_property("user-data/jellyfin/trickplay-interval", "10"))
+    -- Get interval from jellyfin script (defaults to TRICKPLAY_DEFAULT_INTERVAL if not set)
+    local interval = tonumber(mp.get_property("user-data/jellyfin/trickplay-interval", tostring(TRICKPLAY_DEFAULT_INTERVAL)))
     
     -- Calculate time position in seconds
     local time_pos = duration * (position_percent / 100)
