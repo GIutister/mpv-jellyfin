@@ -508,12 +508,16 @@ local function report_playback_stopped()
     playback_session_id = nil
 end
 
+local function clear_trickplay_data()
+    trickplay_data = nil
+    mp.set_property("user-data/jellyfin/trickplay-url", "")
+    mp.set_property("user-data/jellyfin/trickplay-interval", "")
+end
+
 local function fetch_trickplay_data()
     local item = get_playing_item()
     if item == nil then 
-        trickplay_data = nil
-        mp.set_property("user-data/jellyfin/trickplay-url", "")
-        mp.set_property("user-data/jellyfin/trickplay-interval", "")
+        clear_trickplay_data()
         return 
     end
     
@@ -562,9 +566,7 @@ local function unpause()
     mp.set_property_bool("pause", false)
     mp.set_property("force-media-title", "")
     -- Clear trickplay data
-    trickplay_data = nil
-    mp.set_property("user-data/jellyfin/trickplay-url", "")
-    mp.set_property("user-data/jellyfin/trickplay-interval", "")
+    clear_trickplay_data()
 end
 
 local function url_fix(str) -- add more later?

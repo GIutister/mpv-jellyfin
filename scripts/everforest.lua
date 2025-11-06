@@ -302,7 +302,7 @@ end
 -- Full implementation would require downloading and converting images to BGRA format,
 -- similar to how jellyfin.lua handles poster images. This can be extended once
 -- the basic functionality is tested with a Jellyfin server.
-local function show_trickplay_thumbnail(position_percent, tooltip_x, tooltip_y)
+local function show_trickplay_thumbnail(position_percent)
     local trickplay_url = mp.get_property("user-data/jellyfin/trickplay-url", "")
     if trickplay_url == "" then
         return
@@ -326,7 +326,7 @@ local function show_trickplay_thumbnail(position_percent, tooltip_x, tooltip_y)
     local thumb_url = trickplay_url .. "/" .. tile_index .. ".jpg"
     
     -- Infrastructure is in place - ready for full thumbnail display implementation
-    -- Would need to: download thumb_url, convert to BGRA, display at (tooltip_x, tooltip_y)
+    -- Future: download thumb_url, convert to BGRA, display above seekbar
     msg.verbose("Trickplay thumbnail for " .. string.format("%.1f", time_pos) .. "s: " .. thumb_url)
     state.trickplay_visible = true
 end
@@ -839,7 +839,7 @@ function render_elements(master_ass)
 
                     -- Show trickplay thumbnail if this is the seekbar element
                     if element.name == "seekbar" then
-                        show_trickplay_thumbnail(sliderpos, tx, ty)
+                        show_trickplay_thumbnail(sliderpos)
                     end
 
                     -- tooltip label
