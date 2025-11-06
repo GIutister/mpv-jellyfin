@@ -373,7 +373,7 @@ local function connect()
         capture_stdout = true,
         capture_stderr = true,
         playback_only = false,
-        args = {"curl", options.url.."/Users/AuthenticateByName", "-H", "accept: application/json", "-H", "content-type: application/json", "-H", "x-emby-authorization: MediaBrowser Client=\"Mpv\", Device=\"Mpv\", DeviceId=\"1\", Version=\""..mpv_version.."\"", "-d", "{\"username\":\""..options.username.."\",\"Pw\":\""..options.password.."\"}"}
+        args = {"curl", options.url.."/Users/AuthenticateByName", "-H", "accept: application/json", "-H", "content-type: application/json", "-H", "x-emby-authorization: MediaBrowser Client=\"mpv-jellyfin\", Device=\"mpv-jellyfin\", DeviceId=\"1\", Version=\""..mpv_version.."\"", "-d", "{\"username\":\""..options.username.."\",\"Pw\":\""..options.password.."\"}"}
     })
     local result = utils.parse_json(request.stdout)
     user_id = result.User.Id
@@ -521,9 +521,33 @@ local function fetch_trickplay_data()
         return 
     end
     
-    -- Use 320px width (typical for Jellyfin trickplay)
-    -- Future enhancement: Try multiple widths and verify endpoint availability
-    local width = 320
+    -- Try multiple widths to find available trickplay data
+    local widths = {320, 240, 480}
+    local manifest = nil
+    local width = nil
+    
+    for _, w in ipairs(widths) do
+        local manifest_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..w
+        manifest = send_request("GET", manifest_url)
+        if manifest ~= nil and type(manifest) == "table" then
+            width = w
+            msg.info("Found trickplay manifest at width: " .. w)
+            break
+        end
+    end
+    
+    if manifest == nil or width == nil then
+        msg.warn("No trickplay data available for video: " .. item.Id)
+        clear_trickplay_data()
+        return
+    end
+    
+    -- Extract interval from manifest (Jellyfin returns interval in milliseconds)
+    local interval = TRICKPLAY_DEFAULT_INTERVAL
+    if manifest.Interval ~= nil then
+        interval = manifest.Interval / 1000  -- Convert milliseconds to seconds
+    end
+    
     local trickplay_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..width
     
     -- Store trickplay info globally
@@ -531,13 +555,14 @@ local function fetch_trickplay_data()
         item_id = item.Id,
         width = width,
         base_url = trickplay_url,
-        interval = TRICKPLAY_DEFAULT_INTERVAL
+        interval = interval,
+        manifest = manifest
     }
     
     -- Share trickplay URL and interval with other scripts (like OSC)
     mp.set_property("user-data/jellyfin/trickplay-url", trickplay_url)
-    mp.set_property("user-data/jellyfin/trickplay-interval", tostring(TRICKPLAY_DEFAULT_INTERVAL))
-    msg.info("Trickplay data available at: " .. trickplay_url)
+    mp.set_property("user-data/jellyfin/trickplay-interval", tostring(interval))
+    msg.info("Trickplay data available at: " .. trickplay_url .. " with interval: " .. interval .. "s")
 end
 
 local function add_subs()
