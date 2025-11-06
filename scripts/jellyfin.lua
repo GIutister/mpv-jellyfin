@@ -443,7 +443,9 @@ local function report_playback_start()
     local item = get_playing_item()
     if item == nil then return end
     current_item_id = item.Id
-    playback_session_id = tostring(os.time())
+    -- Generate unique session ID using timestamp and random component
+    math.randomseed(os.time())
+    playback_session_id = tostring(os.time()) .. "-" .. tostring(math.random(1000, 9999))
     
     local pos = mp.get_property_number("time-pos") or 0
     local position_ticks = math.floor(pos * 10000000)
@@ -518,6 +520,7 @@ local function add_subs()
 end
 
 local function unpause()
+    -- This function is called on 'end-file' event to report playback stopped
     report_playback_stopped()
     mp.set_property_bool("pause", false)
     mp.set_property("force-media-title", "")
