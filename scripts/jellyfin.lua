@@ -523,8 +523,8 @@ local function fetch_trickplay_data()
     
     -- Try multiple widths to find available trickplay data
     local widths = {320, 240, 480}
-    local manifest = nil
-    local width = nil
+    local manifest
+    local width
     
     for _, w in ipairs(widths) do
         local manifest_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..w
@@ -544,7 +544,7 @@ local function fetch_trickplay_data()
     
     -- Extract interval from manifest (Jellyfin returns interval in milliseconds)
     local interval = TRICKPLAY_DEFAULT_INTERVAL
-    if manifest.Interval ~= nil then
+    if manifest.Interval ~= nil and manifest.Interval > 0 then
         interval = manifest.Interval / 1000  -- Convert milliseconds to seconds
     end
     
