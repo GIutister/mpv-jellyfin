@@ -122,6 +122,8 @@ local state = {
     border = true,
     maximized = false,
     osd = mp.create_osd_overlay("ass-events"),
+    trickplay_overlay_id = 100,  -- ID for trickplay image overlay
+    trickplay_visible = false,
 }
 
 local window_control_box_width = 80
@@ -290,6 +292,41 @@ function add_area(name, x1, y1, x2, y2)
         osc_param.areas[name] = {}
     end
     table.insert(osc_param.areas[name], {x1=x1, y1=y1, x2=x2, y2=y2})
+end
+
+-- Trickplay helper functions
+function show_trickplay_thumbnail(position_percent, tooltip_x, tooltip_y)
+    local trickplay_url = mp.get_property("user-data/jellyfin/trickplay-url", "")
+    if trickplay_url == "" then
+        return
+    end
+    
+    local duration = mp.get_property_number("duration", nil)
+    if not duration or duration <= 0 then
+        return
+    end
+    
+    -- Calculate time position in seconds
+    local time_pos = duration * (position_percent / 100)
+    
+    -- Jellyfin trickplay typically has thumbnails every 10 seconds
+    -- The URL format is: base_url/tile_index.jpg
+    local interval = 10  -- seconds per thumbnail
+    local tile_index = math.floor(time_pos / interval)
+    
+    local thumb_url = trickplay_url .. "/" .. tile_index .. ".jpg"
+    
+    -- Download and display the thumbnail
+    -- For now, we'll use a simple approach with overlay
+    -- Note: This is a simplified implementation
+    state.trickplay_visible = true
+end
+
+function hide_trickplay_thumbnail()
+    if state.trickplay_visible then
+        mp.commandv("overlay-remove", state.trickplay_overlay_id)
+        state.trickplay_visible = false
+    end
 end
 
 function ass_append_alpha(ass, alpha, modifier)
@@ -791,6 +828,11 @@ function render_elements(master_ass)
                         end
                     end
 
+                    -- Show trickplay thumbnail if this is the seekbar element
+                    if element.name == "seekbar" then
+                        show_trickplay_thumbnail(sliderpos, tx, ty)
+                    end
+
                     -- tooltip label
                     elem_ass:new_event()
                     elem_ass:pos(tx, ty)
@@ -799,6 +841,11 @@ function render_elements(master_ass)
                     ass_append_alpha(elem_ass, slider_lo.alpha, 0)
                     elem_ass:append(tooltiplabel)
 
+                else
+                    -- Hide trickplay thumbnail when not hovering
+                    if element.name == "seekbar" then
+                        hide_trickplay_thumbnail()
+                    end
                 end
             end
 

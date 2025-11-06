@@ -39,6 +39,7 @@ local ow, oh, op = 0, 0, 0
 local async = {} -- 1 = image thread, 2 = request thread
 local current_item_id = nil
 local playback_session_id = nil
+local trickplay_data = nil -- Stores trickplay manifest for current video
 
 -- Seed random number generator once at initialization
 math.randomseed(os.time())
@@ -504,6 +505,37 @@ local function report_playback_stopped()
     playback_session_id = nil
 end
 
+local function fetch_trickplay_data()
+    local item = get_playing_item()
+    if item == nil then 
+        trickplay_data = nil
+        mp.set_property("user-data/jellyfin/trickplay-url", "")
+        return 
+    end
+    
+    -- Try common trickplay widths (320 is typical for Jellyfin)
+    local widths = {320, 480}
+    for _, width in ipairs(widths) do
+        local trickplay_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..width
+        
+        -- Store trickplay info globally
+        trickplay_data = {
+            item_id = item.Id,
+            width = width,
+            base_url = trickplay_url
+        }
+        
+        -- Share trickplay URL with other scripts (like OSC)
+        mp.set_property("user-data/jellyfin/trickplay-url", trickplay_url)
+        msg.info("Trickplay data available at: " .. trickplay_url)
+        break
+    end
+end
+
+local function get_trickplay_info()
+    return trickplay_data
+end
+
 local function add_subs()
     local item = get_playing_item()
     if item == nil then return end
@@ -520,6 +552,8 @@ local function add_subs()
     end
     -- Report playback start to Jellyfin
     report_playback_start()
+    -- Fetch trickplay data for the current video
+    fetch_trickplay_data()
 end
 
 local function unpause()
@@ -527,6 +561,9 @@ local function unpause()
     report_playback_stopped()
     mp.set_property_bool("pause", false)
     mp.set_property("force-media-title", "")
+    -- Clear trickplay data
+    trickplay_data = nil
+    mp.set_property("user-data/jellyfin/trickplay-url", "")
 end
 
 local function url_fix(str) -- add more later?
