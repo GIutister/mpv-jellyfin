@@ -39,6 +39,10 @@ local ow, oh, op = 0, 0, 0
 local async = {} -- 1 = image thread, 2 = request thread
 local current_item_id = nil
 local playback_session_id = nil
+local trickplay_data = nil -- Stores trickplay manifest for current video
+
+-- Trickplay constants
+local TRICKPLAY_DEFAULT_INTERVAL = 10 -- Default seconds per thumbnail (Jellyfin standard)
 
 -- Seed random number generator once at initialization
 math.randomseed(os.time())
@@ -363,12 +367,13 @@ local function key_left()
 end
 
 local function connect()
+    local mpv_version = mp.get_property("mpv-version") or "0.0.1"
     local request = mp.command_native({
         name = "subprocess",
         capture_stdout = true,
         capture_stderr = true,
         playback_only = false,
-        args = {"curl", options.url.."/Users/AuthenticateByName", "-H", "accept: application/json", "-H", "content-type: application/json", "-H", "x-emby-authorization: MediaBrowser Client=\"MPV\", Device=\"MPV\", DeviceId=\"1\", Version=\"0.0.1\"", "-d", "{\"username\":\""..options.username.."\",\"Pw\":\""..options.password.."\"}"}
+        args = {"curl", options.url.."/Users/AuthenticateByName", "-H", "accept: application/json", "-H", "content-type: application/json", "-H", "x-emby-authorization: MediaBrowser Client=\"Mpv\", Device=\"Mpv\", DeviceId=\"1\", Version=\""..mpv_version.."\"", "-d", "{\"username\":\""..options.username.."\",\"Pw\":\""..options.password.."\"}"}
     })
     local result = utils.parse_json(request.stdout)
     user_id = result.User.Id
@@ -503,6 +508,38 @@ local function report_playback_stopped()
     playback_session_id = nil
 end
 
+local function clear_trickplay_data()
+    trickplay_data = nil
+    mp.set_property("user-data/jellyfin/trickplay-url", "")
+    mp.set_property("user-data/jellyfin/trickplay-interval", "")
+end
+
+local function fetch_trickplay_data()
+    local item = get_playing_item()
+    if item == nil then 
+        clear_trickplay_data()
+        return 
+    end
+    
+    -- Use 320px width (typical for Jellyfin trickplay)
+    -- Future enhancement: Try multiple widths and verify endpoint availability
+    local width = 320
+    local trickplay_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..width
+    
+    -- Store trickplay info globally
+    trickplay_data = {
+        item_id = item.Id,
+        width = width,
+        base_url = trickplay_url,
+        interval = TRICKPLAY_DEFAULT_INTERVAL
+    }
+    
+    -- Share trickplay URL and interval with other scripts (like OSC)
+    mp.set_property("user-data/jellyfin/trickplay-url", trickplay_url)
+    mp.set_property("user-data/jellyfin/trickplay-interval", tostring(TRICKPLAY_DEFAULT_INTERVAL))
+    msg.info("Trickplay data available at: " .. trickplay_url)
+end
+
 local function add_subs()
     local item = get_playing_item()
     if item == nil then return end
@@ -519,6 +556,8 @@ local function add_subs()
     end
     -- Report playback start to Jellyfin
     report_playback_start()
+    -- Fetch trickplay data for the current video
+    fetch_trickplay_data()
 end
 
 local function unpause()
@@ -526,6 +565,8 @@ local function unpause()
     report_playback_stopped()
     mp.set_property_bool("pause", false)
     mp.set_property("force-media-title", "")
+    -- Clear trickplay data
+    clear_trickplay_data()
 end
 
 local function url_fix(str) -- add more later?

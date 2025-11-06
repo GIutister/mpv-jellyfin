@@ -6,6 +6,9 @@ local msg = require 'mp.msg'
 local opt = require 'mp.options'
 local utils = require 'mp.utils'
 
+-- Trickplay constants (matches jellyfin.lua)
+local TRICKPLAY_DEFAULT_INTERVAL = 10 -- Default seconds per thumbnail (Jellyfin standard)
+
 --
 -- Parameters
 --
@@ -122,6 +125,8 @@ local state = {
     border = true,
     maximized = false,
     osd = mp.create_osd_overlay("ass-events"),
+    trickplay_overlay_id = 100,  -- ID for trickplay image overlay
+    trickplay_visible = false,
 }
 
 local window_control_box_width = 80
@@ -290,6 +295,47 @@ function add_area(name, x1, y1, x2, y2)
         osc_param.areas[name] = {}
     end
     table.insert(osc_param.areas[name], {x1=x1, y1=y1, x2=x2, y2=y2})
+end
+
+-- Trickplay helper functions
+-- Note: This provides the infrastructure for trickplay thumbnail previews.
+-- Full implementation would require downloading and converting images to BGRA format,
+-- similar to how jellyfin.lua handles poster images. This can be extended once
+-- the basic functionality is tested with a Jellyfin server.
+local function show_trickplay_thumbnail(position_percent)
+    local trickplay_url = mp.get_property("user-data/jellyfin/trickplay-url", "")
+    if trickplay_url == "" then
+        return
+    end
+    
+    local duration = mp.get_property_number("duration", nil)
+    if not duration or duration <= 0 then
+        return
+    end
+    
+    -- Get interval from jellyfin script (defaults to TRICKPLAY_DEFAULT_INTERVAL if not set)
+    local interval = tonumber(mp.get_property("user-data/jellyfin/trickplay-interval", tostring(TRICKPLAY_DEFAULT_INTERVAL)))
+    
+    -- Calculate time position in seconds
+    local time_pos = duration * (position_percent / 100)
+    
+    -- Calculate which tile to display
+    -- The URL format is: base_url/tile_index.jpg
+    local tile_index = math.floor(time_pos / interval)
+    
+    local thumb_url = trickplay_url .. "/" .. tile_index .. ".jpg"
+    
+    -- Infrastructure is in place - ready for full thumbnail display implementation
+    -- Future: download thumb_url, convert to BGRA, display above seekbar
+    msg.verbose("Trickplay thumbnail for " .. string.format("%.1f", time_pos) .. "s: " .. thumb_url)
+    state.trickplay_visible = true
+end
+
+local function hide_trickplay_thumbnail()
+    if state.trickplay_visible then
+        mp.commandv("overlay-remove", state.trickplay_overlay_id)
+        state.trickplay_visible = false
+    end
 end
 
 function ass_append_alpha(ass, alpha, modifier)
@@ -791,6 +837,11 @@ function render_elements(master_ass)
                         end
                     end
 
+                    -- Show trickplay thumbnail if this is the seekbar element
+                    if element.name == "seekbar" then
+                        show_trickplay_thumbnail(sliderpos)
+                    end
+
                     -- tooltip label
                     elem_ass:new_event()
                     elem_ass:pos(tx, ty)
@@ -799,6 +850,11 @@ function render_elements(master_ass)
                     ass_append_alpha(elem_ass, slider_lo.alpha, 0)
                     elem_ass:append(tooltiplabel)
 
+                else
+                    -- Hide trickplay thumbnail when not hovering
+                    if element.name == "seekbar" then
+                        hide_trickplay_thumbnail()
+                    end
                 end
             end
 
