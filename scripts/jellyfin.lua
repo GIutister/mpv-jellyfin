@@ -530,8 +530,8 @@ local function fetch_trickplay_data()
         local manifest_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..w
         manifest = send_request("GET", manifest_url)
         -- Validate that manifest contains actual trickplay data
-        if manifest ~= nil and type(manifest) == "table" and 
-           (manifest.TileWidth ~= nil or manifest.ThumbnailCount ~= nil or manifest.Interval ~= nil) then
+        if manifest ~= nil and type(manifest) == "table" and
+            (manifest.TileWidth ~= nil or manifest.ThumbnailCount ~= nil or manifest.Interval ~= nil) then
             width = w
             msg.info("Found trickplay manifest at width: " .. w)
             break
