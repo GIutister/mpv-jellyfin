@@ -529,7 +529,9 @@ local function fetch_trickplay_data()
     for _, w in ipairs(widths) do
         local manifest_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..w
         manifest = send_request("GET", manifest_url)
-        if manifest ~= nil and type(manifest) == "table" then
+        -- Validate that manifest contains actual trickplay data
+        -- Jellyfin returns a table with tile data; check if it has any entries
+        if manifest ~= nil and type(manifest) == "table" and next(manifest) ~= nil then
             width = w
             msg.info("Found trickplay manifest at width: " .. w)
             break
