@@ -39,10 +39,6 @@ local ow, oh, op = 0, 0, 0
 local async = {} -- 1 = image thread, 2 = request thread
 local current_item_id = nil
 local playback_session_id = nil
-local trickplay_data = nil -- Stores trickplay manifest for current video
-
--- Trickplay constants
-local TRICKPLAY_DEFAULT_INTERVAL = 10 -- Default seconds per thumbnail (Jellyfin standard)
 
 -- Seed random number generator once at initialization
 math.randomseed(os.time())
@@ -508,71 +504,6 @@ local function report_playback_stopped()
     playback_session_id = nil
 end
 
-local function clear_trickplay_data()
-    trickplay_data = nil
-    mp.set_property("user-data/jellyfin/trickplay-url", "")
-    mp.set_property("user-data/jellyfin/trickplay-interval", "")
-end
-
-local function fetch_trickplay_data()
-    local item = get_playing_item()
-    if item == nil then 
-        clear_trickplay_data()
-        return 
-    end
-    
-    -- Try multiple widths to find available trickplay data
-    local widths = {320, 240, 480}
-    local manifest
-    local width
-    
-    for _, w in ipairs(widths) do
-        local manifest_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..w
-        manifest = send_request("GET", manifest_url)
-        if manifest ~= nil and type(manifest) == "table" then
-            width = w
-            msg.info("Found trickplay manifest at width: " .. w)
-            break
-        else
-            msg.debug("No trickplay data at width: " .. w)
-        end
-    end
-    
-    if manifest == nil or width == nil then
-        msg.warn("No trickplay data available for video: " .. item.Id)
-        clear_trickplay_data()
-        return
-    end
-    
-    -- Extract interval from manifest (Jellyfin returns interval in milliseconds)
-    -- Standard Jellyfin trickplay intervals are typically 10000ms (10s)
-    local interval = TRICKPLAY_DEFAULT_INTERVAL
-    if manifest.Interval ~= nil and manifest.Interval > 0 then
-        interval = manifest.Interval / 1000  -- Convert milliseconds to seconds
-        -- Sanity check: interval should be between 1 and 60 seconds
-        if interval < 1 or interval > 60 then
-            msg.warn("Unusual trickplay interval: " .. interval .. "s, using default")
-            interval = TRICKPLAY_DEFAULT_INTERVAL
-        end
-    end
-    
-    local trickplay_url = options.url.."/Videos/"..item.Id.."/Trickplay/"..width
-    
-    -- Store trickplay info globally
-    trickplay_data = {
-        item_id = item.Id,
-        width = width,
-        base_url = trickplay_url,
-        interval = interval,
-        manifest = manifest
-    }
-    
-    -- Share trickplay URL and interval with other scripts (like OSC)
-    mp.set_property("user-data/jellyfin/trickplay-url", trickplay_url)
-    mp.set_property("user-data/jellyfin/trickplay-interval", tostring(interval))
-    msg.info("Trickplay data available at: " .. trickplay_url .. " with interval: " .. interval .. "s")
-end
-
 local function add_subs()
     local item = get_playing_item()
     if item == nil then return end
@@ -589,8 +520,6 @@ local function add_subs()
     end
     -- Report playback start to Jellyfin
     report_playback_start()
-    -- Fetch trickplay data for the current video
-    fetch_trickplay_data()
 end
 
 local function unpause()
@@ -598,8 +527,11 @@ local function unpause()
     report_playback_stopped()
     mp.set_property_bool("pause", false)
     mp.set_property("force-media-title", "")
-    -- Clear trickplay data
-    clear_trickplay_data()
+end
+
+local function on_shutdown()
+    -- Notify Jellyfin that playback has stopped when mpv is shutting down
+    report_playback_stopped()
 end
 
 local function url_fix(str) -- add more later?
@@ -664,6 +596,7 @@ end
 mp.observe_property("osd-align-x", "string", align_x_change)
 mp.observe_property("osd-align-y", "string", align_y_change)
 mp.register_event("end-file", unpause)
+mp.register_event("shutdown", on_shutdown)
 if input_success then
     mp.add_key_binding("Ctrl+f", "jf_search", search_input)
 end
